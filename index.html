@@ -1,0 +1,779 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>藝大ウソサムネジェネレータ</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='50' fill='%23475BC7'/><text x='50' y='50' font-size='62' text-anchor='middle' dominant-baseline='central' font-family='Hiragino Sans,sans-serif' fill='white'>げ</text></svg>">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --apple-blue:     #0071e3;
+      --apple-blue-dark: #2997ff;
+      --apple-link:     #0066cc;
+      --near-black:     #1d1d1f;
+      --body-80:        rgba(0,0,0,0.8);
+      --body-48:        rgba(0,0,0,0.48);
+      --page-bg:        #f5f5f7;
+      --card-bg:        #ffffff;
+      --shadow:         rgba(0,0,0,0.12) 0px 2px 20px 0px;
+      --font-display:   -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Hiragino Sans", "Yu Gothic UI", "Noto Sans JP", "Helvetica Neue", Arial, sans-serif;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: var(--font-display);
+      background: var(--page-bg);
+      color: var(--near-black);
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ─── Hero Header ──────────────────────────────────────────── */
+    .hero {
+      background: #000;
+      text-align: center;
+      padding: 56px 24px 48px;
+    }
+
+    .hero-eyebrow {
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--apple-blue-dark);
+      margin-bottom: 16px;
+    }
+
+    .hero h1 {
+      font-size: clamp(32px, 5vw, 48px);
+      font-weight: 600;
+      line-height: 1.08;
+      letter-spacing: -0.25px;
+      color: #fff;
+      margin-bottom: 14px;
+    }
+
+    .hero-sub {
+      font-size: 17px;
+      font-weight: 400;
+      line-height: 1.47;
+      letter-spacing: -0.374px;
+      color: rgba(255,255,255,0.72);
+      max-width: 480px;
+      margin: 0 auto;
+      white-space: nowrap;
+    }
+
+    @media (max-width: 600px) {
+      .hero-sub { white-space: normal; }
+    }
+
+    /* ─── Main Layout ──────────────────────────────────────────── */
+    main {
+      max-width: 940px;
+      margin: 0 auto;
+      padding: 40px 20px 64px;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 300px 1fr;
+      gap: 20px;
+      align-items: start;
+    }
+
+    /* ─── Controls Card ────────────────────────────────────────── */
+    .controls {
+      background: var(--card-bg);
+      border-radius: 12px;
+      padding: 24px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      box-shadow: var(--shadow);
+    }
+
+    .field-label {
+      display: block;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--body-48);
+      margin-bottom: 7px;
+    }
+
+    /* ─── Inputs ───────────────────────────────────────────────── */
+    input[type="text"],
+    textarea,
+    select {
+      width: 100%;
+      background: var(--page-bg);
+      border: 1px solid rgba(0,0,0,0.1);
+      border-radius: 8px;
+      color: var(--near-black);
+      font-family: var(--font-display);
+      font-size: 15px;
+      font-weight: 400;
+      letter-spacing: -0.2px;
+      padding: 9px 12px;
+      outline: none;
+      transition: border-color 0.18s, box-shadow 0.18s;
+      appearance: none;
+    }
+
+    input[type="text"]:focus,
+    textarea:focus,
+    select:focus {
+      border-color: var(--apple-blue);
+      box-shadow: 0 0 0 3px rgba(0,113,227,0.15);
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 88px;
+      line-height: 1.5;
+    }
+
+    /* ─── Upload Area ──────────────────────────────────────────── */
+    .upload-area {
+      background: var(--page-bg);
+      border: 1.5px dashed rgba(0,0,0,0.18);
+      border-radius: 8px;
+      padding: 18px 16px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.18s, background 0.18s;
+    }
+    .upload-area:hover {
+      border-color: var(--apple-blue);
+      background: rgba(0,113,227,0.04);
+    }
+    .upload-area input { display: none; }
+    .upload-label {
+      font-size: 13px;
+      font-weight: 400;
+      color: var(--body-48);
+      line-height: 1.5;
+    }
+    .upload-label strong {
+      display: block;
+      font-size: 14px;
+      font-weight: 400;
+      color: var(--apple-link);
+      margin-bottom: 3px;
+    }
+    .upload-area.has-file .upload-label {
+      color: var(--near-black);
+    }
+    .upload-area.has-file .upload-label strong {
+      color: var(--near-black);
+    }
+
+    /* ─── Segmented Controls ───────────────────────────────────── */
+    .seg-group {
+      display: flex;
+      background: var(--page-bg);
+      border-radius: 8px;
+      padding: 3px;
+      gap: 2px;
+    }
+
+    .seg-group input[type="radio"] { display: none; }
+
+    .seg-group label {
+      flex: 1;
+      text-align: center;
+      padding: 6px 4px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 400;
+      letter-spacing: 0;
+      text-transform: none;
+      color: var(--body-80);
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s, box-shadow 0.15s;
+      user-select: none;
+      margin: 0;
+    }
+
+    .seg-group input[type="radio"]:checked + label {
+      background: var(--card-bg);
+      color: var(--near-black);
+      font-weight: 500;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+    }
+
+    /* ─── Slider ───────────────────────────────────────────────── */
+    .slider-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    input[type="range"] {
+      flex: 1;
+      -webkit-appearance: none;
+      height: 4px;
+      border-radius: 2px;
+      background: rgba(0,0,0,0.1);
+      outline: none;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--card-bg);
+      border: 0.5px solid rgba(0,0,0,0.15);
+      box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+      cursor: pointer;
+    }
+    input[type="range"]:focus::-webkit-slider-thumb {
+      box-shadow: 0 0 0 3px rgba(0,113,227,0.25);
+    }
+
+    .slider-val {
+      min-width: 32px;
+      text-align: right;
+      font-size: 13px;
+      font-weight: 400;
+      color: var(--body-48);
+      letter-spacing: -0.1px;
+    }
+
+    /* ─── Buttons ──────────────────────────────────────────────── */
+    .btn {
+      width: 100%;
+      padding: 10px 16px;
+      border: none;
+      border-radius: 8px;
+      font-family: var(--font-display);
+      font-size: 15px;
+      font-weight: 400;
+      letter-spacing: -0.2px;
+      cursor: pointer;
+      transition: opacity 0.18s, background 0.18s;
+      text-align: center;
+    }
+    .btn:hover { opacity: 0.88; }
+    .btn:active { transform: scale(0.98); }
+
+    .btn-primary {
+      background: var(--apple-blue);
+      color: #fff;
+    }
+
+    .btn-secondary {
+      background: var(--near-black);
+      color: #fff;
+      display: none;
+    }
+
+    .btn-hint {
+      font-size: 11px;
+      color: var(--body-48);
+      text-align: center;
+      letter-spacing: -0.08px;
+      line-height: 1.45;
+    }
+
+    /* ─── Preview Area ─────────────────────────────────────────── */
+    .preview-area {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .preview-wrap {
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      background: #000;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 4px 30px rgba(0,0,0,0.18);
+    }
+
+    canvas {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
+    }
+
+    .preview-caption {
+      font-size: 12px;
+      color: var(--body-48);
+      text-align: center;
+      letter-spacing: -0.1px;
+    }
+
+    /* ─── Divider ──────────────────────────────────────────────── */
+    .divider {
+      height: 1px;
+      background: rgba(0,0,0,0.07);
+      margin: 0 -20px;
+    }
+
+    /* ─── Disclaimer ───────────────────────────────────────────── */
+    .disclaimer {
+      margin-top: 32px;
+      padding: 20px 24px;
+      background: var(--card-bg);
+      border-radius: 12px;
+      box-shadow: var(--shadow);
+    }
+
+    .disclaimer-heading {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--body-48);
+      margin-bottom: 12px;
+    }
+
+    .disclaimer ol {
+      font-size: 12px;
+      color: var(--body-48);
+      line-height: 1.65;
+      padding-left: 1.3em;
+    }
+
+    .disclaimer ol li + li {
+      margin-top: 4px;
+    }
+
+    /* ─── Responsive ───────────────────────────────────────────── */
+    @media (max-width: 680px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+      .hero {
+        padding: 40px 20px 36px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── Hero ── -->
+<header class="hero">
+  <p class="hero-eyebrow">Fan-made Tool</p>
+  <h1>藝大ウソサムネジェネレータ</h1>
+  <p class="hero-sub">東京藝術大学公式チャンネル風のサムネイルを生成するパロディツール</p>
+</header>
+
+<main>
+  <div class="layout">
+
+    <!-- ── Controls ── -->
+    <div class="controls">
+
+      <div>
+        <label class="field-label">背景画像</label>
+        <div class="upload-area" id="uploadArea" onclick="document.getElementById('bgInput').click()">
+          <input type="file" id="bgInput" accept="image/*">
+          <div class="upload-label">
+            <strong id="uploadHint">クリックして画像を選択</strong>
+            JPG / PNG / WEBP
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <label class="field-label" for="seriesLabel">シリーズラベル</label>
+        <input type="text" id="seriesLabel" placeholder="シリーズ名を入力">
+      </div>
+
+      <div>
+        <label class="field-label" for="titleText">タイトル（1行ずつ改行）</label>
+        <textarea id="titleText" placeholder="タイトルを入力（1行ずつ改行）"></textarea>
+      </div>
+
+      <div class="divider"></div>
+
+      <div>
+        <label class="field-label">テキストカラー</label>
+        <div class="seg-group">
+          <input type="radio" name="color" id="cWhite" value="white" checked>
+          <label for="cWhite">白（縁：青）</label>
+          <input type="radio" name="color" id="cBlue" value="blue">
+          <label for="cBlue">青（縁：白）</label>
+        </div>
+      </div>
+
+      <div>
+        <label class="field-label">テキスト配置</label>
+        <div class="seg-group">
+          <input type="radio" name="align" id="aLeft" value="left" checked>
+          <label for="aLeft">左寄せ</label>
+          <input type="radio" name="align" id="aCenter" value="center">
+          <label for="aCenter">中央</label>
+          <input type="radio" name="align" id="aRight" value="right">
+          <label for="aRight">右寄せ</label>
+        </div>
+      </div>
+
+      <div>
+        <label class="field-label">フォントサイズ</label>
+        <div class="slider-row">
+          <input type="range" id="fontSize" min="40" max="160" value="100"
+                 oninput="document.getElementById('fontSizeVal').textContent=this.value">
+          <span class="slider-val" id="fontSizeVal">100</span>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <button class="btn btn-primary" id="btnDownload" onclick="download()">ダウンロード（JPG）</button>
+      <p class="btn-hint">プレビューをドラッグ → タイトル移動&emsp;ダブルクリック → リセット</p>
+
+    </div>
+
+    <!-- ── Preview ── -->
+    <div class="preview-area">
+      <div class="preview-wrap">
+        <canvas id="canvas" width="1280" height="720"></canvas>
+      </div>
+      <p class="preview-caption">生成後に 1280 × 720 の JPG をダウンロードできます</p>
+    </div>
+
+  </div>
+
+  <!-- ── Disclaimer ── -->
+  <div class="disclaimer">
+    <p class="disclaimer-heading">利用規約・免責事項</p>
+    <ol>
+      <li>本ツールは東京藝術大学公式とは一切関係のない、個人が制作したパロディツールです。</li>
+      <li>特定の個人・団体を誹謗中傷する内容、公序良俗に反する内容、政治的・宗教的勧誘を目的とした生成を禁止します。</li>
+      <li>生成された画像の使用により生じた如何なる損害・不利益（学籍上の処分、法的措置等）について、制作者は一切の責任を負いません。</li>
+      <li>本ツールはパロディの範囲内での使用を想定しており、意匠の権利を主張するものではありません。</li>
+    </ol>
+  </div>
+
+  <!-- ── Made by ── -->
+  <p style="text-align:center;margin-top:20px;margin-bottom:8px;font-size:11px;color:rgba(0,0,0,0.3);letter-spacing:-0.08px;">
+    made by <a href="https://x.com/soguomede10" target="_blank" rel="noopener"
+      style="color:rgba(0,0,0,0.3);text-decoration:none;"
+      onmouseover="this.style.color='#0066cc'" onmouseout="this.style.color='rgba(0,0,0,0.3)'">@soguomede10</a>
+  </p>
+
+</main>
+
+<script>
+// ─── フォント読み込み ────────────────────────────────────────
+const fontLink = document.createElement("link");
+fontLink.rel = "stylesheet";
+fontLink.href = "https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@900&family=Noto+Serif+JP:wght@600&display=swap";
+document.head.appendChild(fontLink);
+
+// ─── 定数 ───────────────────────────────────────────────────
+const W = 1280, H = 720;
+const MARGIN_X = 50;
+const BLUE = "#475BC7"; // 実測値 rgb(71,92,199)
+const SCALE_Y = 1.35;
+
+const COLOR_MAP = {
+  white: { text: "#ffffff", stroke: BLUE,      labelBg: "#ffffff", labelText: BLUE      },
+  blue:  { text: BLUE,      stroke: "#ffffff", labelBg: BLUE,      labelText: "#ffffff" },
+};
+
+// ─── ドラッグ状態 ────────────────────────────────────────────
+let bgImage = null;
+let titleDragX = 0, titleDragY = 0;
+let isDragging = false, dragAnchorX, dragAnchorY, dragBaseX, dragBaseY;
+let lastTitleBounds = null; // {x, y, w, h} キャンバス座標
+
+function canvasPt(e) {
+  const cv = document.getElementById("canvas");
+  const r  = cv.getBoundingClientRect();
+  return {
+    x: (e.clientX - r.left) * W / r.width,
+    y: (e.clientY - r.top)  * H / r.height,
+  };
+}
+
+// ─── 背景画像読み込み ────────────────────────────────────────
+document.getElementById("bgInput").addEventListener("change", function () {
+  const file = this.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const img = new Image();
+    img.onload = () => {
+      bgImage = img;
+      document.getElementById("uploadArea").classList.add("has-file");
+      document.getElementById("uploadHint").textContent = file.name;
+      generate();
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+});
+
+// ─── アウトライン付きテキスト ────────────────────────────────
+function drawOutlinedText(ctx, text, x, y, fillColor, strokeColor, strokeWidth) {
+  ctx.lineJoin   = "round";
+  ctx.lineWidth  = strokeWidth * 2;
+  ctx.strokeStyle = strokeColor;
+  ctx.strokeText(text, x, y);
+  ctx.fillStyle  = fillColor;
+  ctx.fillText(text, x, y);
+}
+
+// ─── フォントサイズ自動調整 ──────────────────────────────────
+function fitFontSize(ctx, lines, fontFamily, maxSize, maxWidth) {
+  let size = maxSize;
+  while (size >= 36) {
+    ctx.font = `900 ${size}px "${fontFamily}"`;
+    if (Math.max(...lines.map(l => ctx.measureText(l).width)) <= maxWidth) return size;
+    size -= 4;
+  }
+  return 36;
+}
+
+// ─── メイン生成 ──────────────────────────────────────────────
+async function generate() {
+  await Promise.all([
+    document.fonts.load('900 100px "Noto Sans JP"'),
+    document.fonts.load('600 24px "Noto Serif JP"'),
+  ]);
+
+  const canvas = document.getElementById("canvas");
+  const ctx = canvas.getContext("2d");
+  ctx.clearRect(0, 0, W, H);
+
+  // ── 背景 ────────────────────────────────────────────────
+  const colorKey = document.querySelector("input[name='color']:checked").value;
+  const scheme   = COLOR_MAP[colorKey];
+
+  if (bgImage) {
+    const sr = bgImage.width / bgImage.height, dr = W / H;
+    let sw, sh, sx, sy;
+    if (sr > dr) { sh = bgImage.height; sw = sh * dr; sy = 0; sx = (bgImage.width - sw) / 2; }
+    else         { sw = bgImage.width;  sh = sw / dr; sx = 0; sy = (bgImage.height - sh) / 2; }
+    ctx.drawImage(bgImage, sx, sy, sw, sh, 0, 0, W, H);
+  } else {
+    ctx.fillStyle = "#1a1a2e"; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = "#2a2a4e"; ctx.fillRect(0, 0, W / 2, H);
+  }
+
+  const alignVal = document.querySelector("input[name='align']:checked").value;
+  const series   = document.getElementById("seriesLabel").value.trim();
+  // 空行を保持（ダブル改行をスペースとして反映）、先頭・末尾の空行のみ除去
+  const rawLines = document.getElementById("titleText").value.split("\n");
+  while (rawLines.length > 0 && rawLines[rawLines.length - 1].trim() === "") rawLines.pop();
+  while (rawLines.length > 0 && rawLines[0].trim() === "") rawLines.shift();
+  const maxSize  = parseInt(document.getElementById("fontSize").value);
+
+  // ── シリーズラベル（実測 58px バー）────────────────────────
+  const LABEL_FS  = 46;   // フォントサイズ
+  const LABEL_PAD = 10;   // 上下パディング
+  const barH = LABEL_FS + LABEL_PAD * 2; // = 66px
+
+  if (series) {
+    ctx.font = `600 ${LABEL_FS}px "Noto Serif JP", serif`;
+    ctx.fillStyle = scheme.labelBg;
+    ctx.fillRect(0, 0, W, barH);
+
+    ctx.fillStyle   = scheme.labelText;
+    ctx.textAlign   = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(series, W / 2, barH / 2);
+    ctx.textBaseline = "alphabetic";
+    ctx.textAlign   = "left";
+  }
+
+  if (rawLines.length === 0) {
+    document.getElementById("btnDownload").style.display = "none";
+    return;
+  }
+
+  // ── タイトル（縦伸び Noto Sans JP Black）───────────────────
+  const fontFamily = "Noto Sans JP";
+  const nonEmptyLines = rawLines.filter(l => l.trim() !== "");
+  const actualSize = fitFontSize(ctx, nonEmptyLines, fontFamily, maxSize, W - MARGIN_X * 2);
+  ctx.font = `900 ${actualSize}px "${fontFamily}"`;
+
+  const lineSpacing = actualSize * 0.06; // 行間（m.height基準）
+  const lineMetrics = rawLines.map(l => {
+    if (l.trim() === "") {
+      // 空行：1行分の高さを空白として確保
+      return { width: 0, height: actualSize * 0.55 * SCALE_Y, ascent: 0, isEmpty: true };
+    }
+    const m = ctx.measureText(l);
+    return {
+      width:  m.width,
+      height: (m.actualBoundingBoxAscent + m.actualBoundingBoxDescent) * SCALE_Y,
+      ascent: m.actualBoundingBoxAscent,
+      isEmpty: false,
+    };
+  });
+
+  const totalH      = lineMetrics.reduce((s, m, i) => s + m.height + (i < rawLines.length - 1 && !m.isEmpty ? lineSpacing : 0), 0);
+  const labelBottom = series ? (barH + 10) : 20;
+  const baseStartY  = labelBottom + ((H - labelBottom - 20) - totalH) / 2;
+  const startY      = baseStartY + titleDragY;
+  const strokeW     = Math.max(2, actualSize / 30);
+
+  let curY = startY;
+  let minX = W, maxX = 0;
+  rawLines.forEach((line, i) => {
+    const m = lineMetrics[i];
+    if (m.isEmpty) {
+      curY += m.height;
+      return; // 空行はスペースのみ
+    }
+    let x;
+    if      (alignVal === "center") x = (W - m.width) / 2 + titleDragX;
+    else if (alignVal === "right")  x = W - MARGIN_X - m.width + titleDragX;
+    else                            x = MARGIN_X + titleDragX;
+    minX = Math.min(minX, x);
+    maxX = Math.max(maxX, x + m.width);
+
+    // 正しいtransform: ty = curY*(1-SCALE_Y)、描画位置 = curY + A（スケール前ascent）
+    ctx.save();
+    ctx.transform(1, 0, 0, SCALE_Y, 0, curY * (1 - SCALE_Y));
+    drawOutlinedText(ctx, line, x, curY + m.ascent,
+                     scheme.text, scheme.stroke, strokeW / SCALE_Y);
+    ctx.restore();
+
+    curY += m.height + lineSpacing;
+  });
+
+  lastTitleBounds = { x: minX, y: startY, w: maxX - minX, h: totalH };
+
+  // ドラッグ中はタイトル周囲にハイライト
+  if (isDragging) {
+    ctx.save();
+    ctx.strokeStyle = "rgba(255,255,255,0.5)";
+    ctx.lineWidth = 2;
+    ctx.setLineDash([6, 4]);
+    ctx.strokeRect(minX - 8, startY - 8, maxX - minX + 16, totalH + 16);
+    ctx.restore();
+  }
+
+  // ── にせものスタンプ（常時表示・控えめ）──────────────────
+  {
+    ctx.save();
+    ctx.translate(W - 108, H - 96);
+    ctx.rotate(-0.32);
+    const alpha = 0.45;
+    ctx.strokeStyle = `rgba(200,30,30,${alpha})`;
+    ctx.lineWidth = 4.5;
+    ctx.strokeRect(-72, -34, 144, 68);
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(-64, -26, 128, 52);
+    ctx.font = 'bold 30px "Hiragino Sans", sans-serif';
+    ctx.fillStyle = `rgba(200,30,30,${alpha})`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("にせもの", 0, 0);
+    ctx.restore();
+  }
+
+  document.getElementById("btnDownload").style.display = "block";
+}
+
+// ─── ダウンロード ────────────────────────────────────────────
+function download() {
+  const canvas = document.getElementById("canvas");
+  const a = document.createElement("a");
+  a.href = canvas.toDataURL("image/jpeg", 0.95);
+  a.download = "thumbnail.jpg";
+  a.click();
+}
+
+// ─── ドラッグ操作 ────────────────────────────────────────────
+const cv = document.getElementById("canvas");
+
+function inTextHit(pt, b) {
+  if (!b) return false;
+  // テキスト全体がヒット判定
+  return pt.x >= b.x && pt.x <= b.x + b.w && pt.y >= b.y && pt.y <= b.y + b.h;
+}
+
+cv.addEventListener("mousedown", e => {
+  const pt = canvasPt(e);
+  if (!inTextHit(pt, lastTitleBounds)) return;
+  isDragging  = true;
+  dragAnchorX = pt.x; dragAnchorY = pt.y;
+  dragBaseX   = titleDragX; dragBaseY = titleDragY;
+  cv.style.cursor = "grabbing";
+  e.preventDefault();
+});
+
+cv.addEventListener("mousemove", e => {
+  const pt = canvasPt(e);
+  if (isDragging) {
+    titleDragX = dragBaseX + (pt.x - dragAnchorX);
+    titleDragY = dragBaseY + (pt.y - dragAnchorY);
+    generate();
+  } else {
+    cv.style.cursor = inTextHit(pt, lastTitleBounds) ? "grab" : "default";
+  }
+});
+
+cv.addEventListener("mouseup",    () => { isDragging = false; generate(); });
+cv.addEventListener("mouseleave", () => { isDragging = false; });
+
+// ダブルクリックで位置リセット
+cv.addEventListener("dblclick", () => {
+  titleDragX = 0; titleDragY = 0;
+  generate();
+});
+
+// ─── NGワードフィルター ──────────────────────────────────────
+const NG_WORDS = [
+  "閉鎖","廃止","民営化","解体","倒産","破産","入試中止","合格取消",
+  "漏洩","裏口","買収","汚職","学長解任","キャンパス移転","爆破予告",
+  "殺害予告","テロ","日比野","理事","事務局長","守衛","大麻","大麻クッキー",
+  "LSD","覚醒剤","パケ","密売","不法侵入","盗撮","全裸","乱交",
+  "ストリーキング","露出","強制性交","パワハラ","セクハラ","ホモ","レズ",
+  "障害者","野獣先輩","AV",
+];
+const NG_REPLACE = "愛と平和";
+
+function applyNgFilter(el) {
+  const pos = el.selectionStart;
+  let val = el.value;
+  let replaced = false;
+  for (const w of NG_WORDS) {
+    if (val.includes(w)) { val = val.split(w).join(NG_REPLACE); replaced = true; }
+  }
+  if (replaced) {
+    el.value = val;
+    // カーソル位置を末尾にリセット（置換後の自然な位置）
+    el.selectionStart = el.selectionEnd = Math.min(pos, val.length);
+  }
+}
+
+// IME確定後・通常入力の両方に対応
+["seriesLabel", "titleText"].forEach(id => {
+  const el = document.getElementById(id);
+  let composing = false;
+  el.addEventListener("compositionstart", () => { composing = true; });
+  el.addEventListener("compositionend",   () => { composing = false; applyNgFilter(el); });
+  el.addEventListener("input",            () => { if (!composing) applyNgFilter(el); });
+});
+
+// ─── リアルタイムプレビュー ──────────────────────────────────
+let debounceTimer;
+["seriesLabel", "titleText", "fontSize"].forEach(id => {
+  document.getElementById(id).addEventListener("input", () => {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(generate, 300);
+  });
+});
+document.querySelectorAll("input[name='color'], input[name='align']").forEach(el => {
+  el.addEventListener("change", generate);
+});
+
+generate();
+</script>
+</body>
+</html>
