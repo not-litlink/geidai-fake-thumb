@@ -592,8 +592,11 @@ const COLOR_MAP = {
 // ─── ドラッグ状態 ────────────────────────────────────────────
 let bgImage = null;
 let bgImageWithBg = null; // 背景色が追加された画像
+let bgImageState = null;  // { sourceImg, offsetX, offsetY, scale }
 let titleDragX = 0, titleDragY = 0;
-let isDragging = false, dragAnchorX, dragAnchorY, dragBaseX, dragBaseY;
+let isDragging = false, isDraggingImage = false;
+let dragAnchorX, dragAnchorY, dragBaseX, dragBaseY;
+let imgDragAnchorX, imgDragAnchorY, imgDragBaseOffX, imgDragBaseOffY;
 let lastTitleBounds = null; // {x, y, w, h} キャンバス座標
 
 function canvasPt(e) {
@@ -744,37 +747,25 @@ function drawImageEditor() {
 }
 
 function confirmImageEdit() {
-  const resultCanvas = document.createElement("canvas");
-  resultCanvas.width = W;
-  resultCanvas.height = H;
-  const ctx = resultCanvas.getContext("2d");
-
-  // エディター canvas(640x360) → 出力 canvas(W×H) へのスケール比率を補正
-  const editorW = 640, editorH = 360;
-  const scaleRatio = W / editorW; // = 2
-  ctx.save();
-  ctx.translate(W / 2, H / 2);
-  ctx.scale(editorState.scale * scaleRatio, editorState.scale * scaleRatio);
-  ctx.translate(editorState.offsetX, editorState.offsetY);
-  ctx.drawImage(editorSourceImage, -editorSourceImage.width / 2, -editorSourceImage.height / 2);
-  ctx.restore();
-
-  const resultImg = new Image();
-  resultImg.onload = () => {
-    bgImage = resultImg;
-    bgImageWithBg = null;
-
-    if (hasTransparency(resultImg)) {
-      const colorKey = document.querySelector("input[name='color']:checked").value;
-      const scheme = COLOR_MAP[colorKey];
-      const bgColor = scheme.text === "#ffffff" ? BLUE : "#ffffff";
-      bgImageWithBg = createImageWithBg(resultImg, bgColor);
-    }
-
-    closeImageEditor();
-    generate();
+  const srcImg = editorSourceImage;
+  bgImage = srcImg;
+  bgImageWithBg = null;
+  bgImageState = {
+    sourceImg: srcImg,
+    offsetX: editorState.offsetX,
+    offsetY: editorState.offsetY,
+    scale: editorState.scale
   };
-  resultImg.src = resultCanvas.toDataURL();
+
+  if (hasTransparency(srcImg)) {
+    const colorKey = document.querySelector("input[name='color']:checked").value;
+    const scheme = COLOR_MAP[colorKey];
+    const bgColor = scheme.text === "#ffffff" ? BLUE : "#ffffff";
+    bgImageWithBg = createImageWithBg(srcImg, bgColor);
+  }
+
+  closeImageEditor();
+  generate();
 }
 
 // ─── メイン生成 ──────────────────────────────────────────────
@@ -792,19 +783,15 @@ async function generate() {
   const colorKey = document.querySelector("input[name='color']:checked").value;
   const scheme   = COLOR_MAP[colorKey];
 
-  if (bgImageWithBg) {
-    // 背景色が追加された画像を使用
-    const sr = bgImageWithBg.width / bgImageWithBg.height, dr = W / H;
-    let sw, sh, sx, sy;
-    if (sr > dr) { sh = bgImageWithBg.height; sw = sh * dr; sy = 0; sx = (bgImageWithBg.width - sw) / 2; }
-    else         { sw = bgImageWithBg.width;  sh = sw / dr; sx = 0; sy = (bgImageWithBg.height - sh) / 2; }
-    ctx.drawImage(bgImageWithBg, sx, sy, sw, sh, 0, 0, W, H);
-  } else if (bgImage) {
-    const sr = bgImage.width / bgImage.height, dr = W / H;
-    let sw, sh, sx, sy;
-    if (sr > dr) { sh = bgImage.height; sw = sh * dr; sy = 0; sx = (bgImage.width - sw) / 2; }
-    else         { sw = bgImage.width;  sh = sw / dr; sx = 0; sy = (bgImage.height - sh) / 2; }
-    ctx.drawImage(bgImage, sx, sy, sw, sh, 0, 0, W, H);
+  if (bgImageState) {
+    const src = bgImageWithBg || bgImageState.sourceImg;
+    const scaleRatio = W / 640; // エディター幅(640) → 出力幅(W)
+    ctx.save();
+    ctx.translate(W / 2, H / 2);
+    ctx.scale(bgImageState.scale * scaleRatio, bgImageState.scale * scaleRatio);
+    ctx.translate(bgImageState.offsetX, bgImageState.offsetY);
+    ctx.drawImage(src, -src.width / 2, -src.height / 2);
+    ctx.restore();
   } else {
     ctx.fillStyle = "#1a1a2e"; ctx.fillRect(0, 0, W, H);
     ctx.fillStyle = "#2a2a4e"; ctx.fillRect(0, 0, W / 2, H);
@@ -947,10 +934,18 @@ function inTextHit(pt, b) {
 
 cv.addEventListener("mousedown", e => {
   const pt = canvasPt(e);
-  if (!inTextHit(pt, lastTitleBounds)) return;
-  isDragging  = true;
-  dragAnchorX = pt.x; dragAnchorY = pt.y;
-  dragBaseX   = titleDragX; dragBaseY = titleDragY;
+  if (inTextHit(pt, lastTitleBounds)) {
+    isDragging  = true;
+    dragAnchorX = pt.x; dragAnchorY = pt.y;
+    dragBaseX   = titleDragX; dragBaseY = titleDragY;
+  } else if (bgImageState) {
+    isDraggingImage  = true;
+    imgDragAnchorX   = pt.x; imgDragAnchorY   = pt.y;
+    imgDragBaseOffX  = bgImageState.offsetX;
+    imgDragBaseOffY  = bgImageState.offsetY;
+  } else {
+    return;
+  }
   cv.style.cursor = "grabbing";
   e.preventDefault();
 });
@@ -961,13 +956,19 @@ cv.addEventListener("mousemove", e => {
     titleDragX = dragBaseX + (pt.x - dragAnchorX);
     titleDragY = dragBaseY + (pt.y - dragAnchorY);
     generate();
+  } else if (isDraggingImage && bgImageState) {
+    const scaleRatio = W / 640;
+    const totalScale = bgImageState.scale * scaleRatio;
+    bgImageState.offsetX = imgDragBaseOffX + (pt.x - imgDragAnchorX) / totalScale;
+    bgImageState.offsetY = imgDragBaseOffY + (pt.y - imgDragAnchorY) / totalScale;
+    generate();
   } else {
-    cv.style.cursor = inTextHit(pt, lastTitleBounds) ? "grab" : "default";
+    cv.style.cursor = inTextHit(pt, lastTitleBounds) ? "grab" : (bgImageState ? "grab" : "default");
   }
 });
 
-cv.addEventListener("mouseup",    () => { isDragging = false; generate(); });
-cv.addEventListener("mouseleave", () => { isDragging = false; });
+cv.addEventListener("mouseup",    () => { isDragging = false; isDraggingImage = false; generate(); });
+cv.addEventListener("mouseleave", () => { isDragging = false; isDraggingImage = false; });
 
 // ─── 画像エディターのドラッグ・スクロール ──────────────────
 const editorCanvas = document.getElementById("imageEditorCanvas");
@@ -1059,11 +1060,11 @@ let debounceTimer;
 document.querySelectorAll("input[name='color']").forEach(el => {
   el.addEventListener("change", () => {
     // 色変更時に背景付き画像を再生成
-    if (bgImage && hasTransparency(bgImage)) {
+    if (bgImageState && hasTransparency(bgImageState.sourceImg)) {
       const colorKey = document.querySelector("input[name='color']:checked").value;
       const scheme = COLOR_MAP[colorKey];
       const bgColor = scheme.text === "#ffffff" ? BLUE : "#ffffff";
-      bgImageWithBg = createImageWithBg(bgImage, bgColor);
+      bgImageWithBg = createImageWithBg(bgImageState.sourceImg, bgColor);
     }
     generate();
   });
