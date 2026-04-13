@@ -347,6 +347,89 @@
       margin-top: 4px;
     }
 
+    /* ─── Image Editor Modal ──────────────────────────────────── */
+    .image-editor-modal {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+    .image-editor-panel {
+      background: var(--card-bg);
+      border-radius: 12px;
+      max-width: 700px;
+      width: 90%;
+      overflow: hidden;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+    .image-editor-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 20px 24px;
+      border-bottom: 1px solid rgba(0,0,0,0.07);
+    }
+    .image-editor-footer {
+      padding: 16px 24px;
+      border-top: 1px solid rgba(0,0,0,0.07);
+      background: rgba(0,0,0,0.02);
+    }
+    .editor-zoom-controls {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    .editor-zoom-btn {
+      width: 32px;
+      height: 32px;
+      border-radius: 6px;
+      border: 1px solid rgba(0,0,0,0.1);
+      background: var(--card-bg);
+      color: var(--near-black);
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .editor-zoom-btn:hover { background: rgba(0,0,0,0.05); }
+    .editor-zoom-slider {
+      flex: 1;
+      height: 4px;
+      border-radius: 2px;
+      background: rgba(0,0,0,0.1);
+      -webkit-appearance: none;
+      appearance: none;
+      outline: none;
+    }
+    .editor-zoom-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--apple-blue);
+      cursor: pointer;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    }
+    .editor-zoom-slider::-moz-range-thumb {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--apple-blue);
+      border: none;
+      cursor: pointer;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    }
+    .editor-zoom-value {
+      width: 40px;
+      text-align: center;
+      font-size: 12px;
+      color: var(--body-48);
+      font-weight: 500;
+    }
+
     /* ─── Responsive ───────────────────────────────────────────── */
     @media (max-width: 680px) {
       .layout {
@@ -366,6 +449,30 @@
   <h1>藝大ウソサムネジェネレータ</h1>
   <p class="hero-sub">東京藝術大学公式チャンネル風のサムネイルを生成するパロディツール</p>
 </header>
+
+<!-- ── Image Editor Modal ── -->
+<div class="image-editor-modal" id="imageEditorModal" style="display:none;">
+  <div class="image-editor-panel">
+    <div class="image-editor-header">
+      <h3 style="margin:0;font-size:18px;font-weight:600;">画像を調整</h3>
+      <button class="close-btn" onclick="closeImageEditor()" style="background:none;border:none;font-size:28px;color:#999;cursor:pointer;padding:0 8px;">&times;</button>
+    </div>
+    <canvas id="imageEditorCanvas" width="640" height="360" style="display:block;width:100%;background:#f5f5f7;cursor:grab;"></canvas>
+    <div class="image-editor-footer">
+      <p style="font-size:12px;color:#999;text-align:center;margin:0 0 12px;">ドラッグで移動 • スクロール/スライダーでズーム</p>
+      <div class="editor-zoom-controls">
+        <button class="editor-zoom-btn" onclick="zoomImageEditor(-0.1)">−</button>
+        <input type="range" class="editor-zoom-slider" id="editorZoomSlider" min="50" max="300" value="100" oninput="setImageEditorZoom(this.value)">
+        <span class="editor-zoom-value" id="editorZoomValue">100%</span>
+        <button class="editor-zoom-btn" onclick="zoomImageEditor(0.1)">+</button>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;">
+        <button class="btn btn-secondary" onclick="closeImageEditor()" style="flex:0;width:auto;">キャンセル</button>
+        <button class="btn btn-primary" onclick="confirmImageEdit()" style="flex:0;width:auto;">適用</button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <main>
   <div class="layout">
@@ -484,6 +591,7 @@ const COLOR_MAP = {
 
 // ─── ドラッグ状態 ────────────────────────────────────────────
 let bgImage = null;
+let bgImageWithBg = null; // 背景色が追加された画像
 let titleDragX = 0, titleDragY = 0;
 let isDragging = false, dragAnchorX, dragAnchorY, dragBaseX, dragBaseY;
 let lastTitleBounds = null; // {x, y, w, h} キャンバス座標
@@ -497,6 +605,34 @@ function canvasPt(e) {
   };
 }
 
+// ─── 透明度判定 ──────────────────────────────────────────────
+function hasTransparency(img) {
+  const canvas = document.createElement("canvas");
+  canvas.width = img.width;
+  canvas.height = img.height;
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(img, 0, 0);
+  const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+  for (let i = 3; i < data.length; i += 4) {
+    if (data[i] < 255) return true;
+  }
+  return false;
+}
+
+// ─── 背景色付き画像生成 ────────────────────────────────────────
+function createImageWithBg(srcImg, bgColor) {
+  const canvas = document.createElement("canvas");
+  canvas.width = srcImg.width;
+  canvas.height = srcImg.height;
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = bgColor;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(srcImg, 0, 0);
+  const newImg = new Image();
+  newImg.src = canvas.toDataURL();
+  return newImg;
+}
+
 // ─── 背景画像読み込み ────────────────────────────────────────
 document.getElementById("bgInput").addEventListener("change", function () {
   const file = this.files[0];
@@ -505,10 +641,9 @@ document.getElementById("bgInput").addEventListener("change", function () {
   reader.onload = e => {
     const img = new Image();
     img.onload = () => {
-      bgImage = img;
       document.getElementById("uploadArea").classList.add("has-file");
       document.getElementById("uploadHint").textContent = file.name;
-      generate();
+      openImageEditor(img);
     };
     img.src = e.target.result;
   };
@@ -536,6 +671,112 @@ function fitFontSize(ctx, lines, fontFamily, maxSize, maxWidth) {
   return 36;
 }
 
+// ─── 画像エディター ──────────────────────────────────────────
+let editorSourceImage = null;
+let editorState = { offsetX: 0, offsetY: 0, scale: 1, isDragging: false, dragStartX: 0, dragStartY: 0 };
+
+function openImageEditor(img) {
+  editorSourceImage = img;
+  const canvas = document.getElementById("imageEditorCanvas");
+  // 画像がキャンバスを覆うよう cover 計算（トリミング前提）
+  const initialScale = Math.max(canvas.width / img.width, canvas.height / img.height);
+  editorState = { offsetX: 0, offsetY: 0, scale: initialScale, isDragging: false, dragStartX: 0, dragStartY: 0 };
+  const slider = document.getElementById("editorZoomSlider");
+  const minVal = Math.max(1, Math.round(initialScale * 50));   // 初期の50%まで縮小可
+  const maxVal = Math.round(initialScale * 500);               // 初期の500%まで拡大可
+  slider.min = minVal;
+  slider.max = maxVal;
+  slider.value = Math.round(initialScale * 100);
+  document.getElementById("imageEditorModal").style.display = "flex";
+  document.getElementById("editorZoomValue").textContent = Math.round(initialScale * 100) + "%";
+  drawImageEditor();
+}
+
+function zoomImageEditor(delta) {
+  const slider = document.getElementById("editorZoomSlider");
+  editorState.scale = Math.max(slider.min / 100, Math.min(editorState.scale + delta, slider.max / 100));
+  document.getElementById("editorZoomSlider").value = Math.round(editorState.scale * 100);
+  document.getElementById("editorZoomValue").textContent = Math.round(editorState.scale * 100) + "%";
+  drawImageEditor();
+}
+
+function setImageEditorZoom(value) {
+  editorState.scale = value / 100;
+  document.getElementById("editorZoomValue").textContent = value + "%";
+  drawImageEditor();
+}
+
+function closeImageEditor() {
+  document.getElementById("imageEditorModal").style.display = "none";
+  editorSourceImage = null;
+}
+
+function drawImageEditor() {
+  const canvas = document.getElementById("imageEditorCanvas");
+  if (!canvas || !editorSourceImage) return;
+  const ctx = canvas.getContext("2d");
+  const cw = canvas.width, ch = canvas.height;
+
+  ctx.fillStyle = "#f5f5f7";
+  ctx.fillRect(0, 0, cw, ch);
+
+  // グリッド表示
+  ctx.strokeStyle = "rgba(0,0,0,0.08)";
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= 2; i++) {
+    ctx.beginPath();
+    ctx.moveTo((i * cw) / 2, 0);
+    ctx.lineTo((i * cw) / 2, ch);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(0, (i * ch) / 2);
+    ctx.lineTo(cw, (i * ch) / 2);
+    ctx.stroke();
+  }
+
+  // 画像を描画
+  ctx.save();
+  ctx.translate(cw / 2, ch / 2);
+  ctx.scale(editorState.scale, editorState.scale);
+  ctx.translate(editorState.offsetX, editorState.offsetY);
+  ctx.drawImage(editorSourceImage, -editorSourceImage.width / 2, -editorSourceImage.height / 2);
+  ctx.restore();
+}
+
+function confirmImageEdit() {
+  const resultCanvas = document.createElement("canvas");
+  resultCanvas.width = W;
+  resultCanvas.height = H;
+  const ctx = resultCanvas.getContext("2d");
+
+  // エディター canvas(640x360) → 出力 canvas(W×H) へのスケール比率を補正
+  const editorW = 640, editorH = 360;
+  const scaleRatio = W / editorW; // = 2
+  ctx.save();
+  ctx.translate(W / 2, H / 2);
+  ctx.scale(editorState.scale * scaleRatio, editorState.scale * scaleRatio);
+  ctx.translate(editorState.offsetX, editorState.offsetY);
+  ctx.drawImage(editorSourceImage, -editorSourceImage.width / 2, -editorSourceImage.height / 2);
+  ctx.restore();
+
+  const resultImg = new Image();
+  resultImg.onload = () => {
+    bgImage = resultImg;
+    bgImageWithBg = null;
+
+    if (hasTransparency(resultImg)) {
+      const colorKey = document.querySelector("input[name='color']:checked").value;
+      const scheme = COLOR_MAP[colorKey];
+      const bgColor = scheme.text === "#ffffff" ? BLUE : "#ffffff";
+      bgImageWithBg = createImageWithBg(resultImg, bgColor);
+    }
+
+    closeImageEditor();
+    generate();
+  };
+  resultImg.src = resultCanvas.toDataURL();
+}
+
 // ─── メイン生成 ──────────────────────────────────────────────
 async function generate() {
   await Promise.all([
@@ -551,7 +792,14 @@ async function generate() {
   const colorKey = document.querySelector("input[name='color']:checked").value;
   const scheme   = COLOR_MAP[colorKey];
 
-  if (bgImage) {
+  if (bgImageWithBg) {
+    // 背景色が追加された画像を使用
+    const sr = bgImageWithBg.width / bgImageWithBg.height, dr = W / H;
+    let sw, sh, sx, sy;
+    if (sr > dr) { sh = bgImageWithBg.height; sw = sh * dr; sy = 0; sx = (bgImageWithBg.width - sw) / 2; }
+    else         { sw = bgImageWithBg.width;  sh = sw / dr; sx = 0; sy = (bgImageWithBg.height - sh) / 2; }
+    ctx.drawImage(bgImageWithBg, sx, sy, sw, sh, 0, 0, W, H);
+  } else if (bgImage) {
     const sr = bgImage.width / bgImage.height, dr = W / H;
     let sw, sh, sx, sy;
     if (sr > dr) { sh = bgImage.height; sw = sh * dr; sy = 0; sx = (bgImage.width - sw) / 2; }
@@ -721,6 +969,45 @@ cv.addEventListener("mousemove", e => {
 cv.addEventListener("mouseup",    () => { isDragging = false; generate(); });
 cv.addEventListener("mouseleave", () => { isDragging = false; });
 
+// ─── 画像エディターのドラッグ・スクロール ──────────────────
+const editorCanvas = document.getElementById("imageEditorCanvas");
+if (editorCanvas) {
+  editorCanvas.addEventListener("mousedown", e => {
+    if (!editorSourceImage) return;
+    editorState.isDragging = true;
+    editorState.dragStartX = e.clientX;
+    editorState.dragStartY = e.clientY;
+    editorCanvas.style.cursor = "grabbing";
+  });
+
+  document.addEventListener("mousemove", e => {
+    if (!editorState.isDragging) return;
+    const deltaX = e.clientX - editorState.dragStartX;
+    const deltaY = e.clientY - editorState.dragStartY;
+    editorState.offsetX += deltaX / (4 * editorState.scale);
+    editorState.offsetY += deltaY / (4 * editorState.scale);
+    editorState.dragStartX = e.clientX;
+    editorState.dragStartY = e.clientY;
+    drawImageEditor();
+  });
+
+  document.addEventListener("mouseup", () => {
+    if (editorState.isDragging) {
+      editorState.isDragging = false;
+      editorCanvas.style.cursor = "grab";
+    }
+  });
+
+  editorCanvas.addEventListener("wheel", e => {
+    if (!editorSourceImage) return;
+    e.preventDefault();
+    const factor = e.deltaY < 0 ? 1.1 : 0.9;
+    editorState.scale *= factor;
+    editorState.scale = Math.max(0.5, Math.min(editorState.scale, 3));
+    drawImageEditor();
+  });
+}
+
 // ダブルクリックで位置リセット
 cv.addEventListener("dblclick", () => {
   titleDragX = 0; titleDragY = 0;
@@ -769,7 +1056,19 @@ let debounceTimer;
     debounceTimer = setTimeout(generate, 300);
   });
 });
-document.querySelectorAll("input[name='color'], input[name='align']").forEach(el => {
+document.querySelectorAll("input[name='color']").forEach(el => {
+  el.addEventListener("change", () => {
+    // 色変更時に背景付き画像を再生成
+    if (bgImage && hasTransparency(bgImage)) {
+      const colorKey = document.querySelector("input[name='color']:checked").value;
+      const scheme = COLOR_MAP[colorKey];
+      const bgColor = scheme.text === "#ffffff" ? BLUE : "#ffffff";
+      bgImageWithBg = createImageWithBg(bgImage, bgColor);
+    }
+    generate();
+  });
+});
+document.querySelectorAll("input[name='align']").forEach(el => {
   el.addEventListener("change", generate);
 });
 
